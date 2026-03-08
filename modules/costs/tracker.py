@@ -23,7 +23,9 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "claude-opus":     {"input": 15.0,  "output": 75.0},
     "gpt-4o-mini":     {"input": 0.15,  "output": 0.60},
     "gpt-4o":          {"input": 2.50,  "output": 10.0},
-    "grok-beta":            {"input": 5.0,   "output": 15.0},
+    # xAI Grok 3 pricing (per million tokens, as of 2026-03 — verify at console.x.ai)
+    "grok-beta":            {"input": 5.0,   "output": 25.0},   # grok-3-fast
+    "grok-3-mini":          {"input": 0.30,  "output": 0.50},   # grok-3-mini
     "gemini-pro":           {"input": 0.075, "output": 0.30},
     # Perplexity — sonar pricing (per million tokens, as of 2026-03)
     "perplexity-sonar":     {"input": 1.0,   "output": 1.0},

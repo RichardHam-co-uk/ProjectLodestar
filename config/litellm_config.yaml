@@ -49,13 +49,18 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
 
   # ============================================
-  # TIER 4: GROK (xAI API)
-  # NOTE: Requires xAI credits at https://console.x.ai/
-  # grok-beta is deprecated — use grok-2-1212
+  # TIER 4: GROK (xAI API — credits required)
+  # grok-3-fast: best speed/quality (~0.9s, confirmed 2026-03-08)
+  # grok-3-mini: cheapest xAI option, good for lighter tasks
   # ============================================
   - model_name: grok-beta
     litellm_params:
-      model: xai/grok-2-1212
+      model: xai/grok-3-fast
+      api_key: os.environ/XAI_API_KEY
+
+  - model_name: grok-3-mini
+    litellm_params:
+      model: xai/grok-3-mini
       api_key: os.environ/XAI_API_KEY
 
   # ============================================

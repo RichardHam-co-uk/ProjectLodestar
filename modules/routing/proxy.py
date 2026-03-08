@@ -53,10 +53,14 @@ _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
     "gpt-4o-mini": {
         "model": "openai/gpt-4o-mini",
     },
-    # NOTE: grok-beta is deprecated. grok-2-1212 requires xAI credits on account.
-    # Visit https://console.x.ai/ to add credits before this tier activates.
+    # xAI Grok 3 — credits required at https://console.x.ai/
+    # grok-3-fast: best speed/quality for routing (~0.9s)
+    # grok-3-mini: cheapest xAI option, good for lighter tasks
     "grok-beta": {
-        "model": "xai/grok-2-1212",
+        "model": "xai/grok-3-fast",
+    },
+    "grok-3-mini": {
+        "model": "xai/grok-3-mini",
     },
     "perplexity-sonar": {
         "model": "perplexity/sonar",
