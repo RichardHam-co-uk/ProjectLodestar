@@ -15,12 +15,15 @@ logger = logging.getLogger(__name__)
 #
 #  local-code      qwen2.5-coder:3b  1.93 GiB — code generation, bug fixes, docs
 #  local-instruct  llama3.2:3b       2.02 GiB — general tasks, tool use, structured output
-#  local-reasoning deepseek-r1:1.5b  1.12 GiB — quick chain-of-thought, step-by-step
-#  local-analysis  phi4-mini         2.49 GiB — complex refactor, deep debug, function calling
-#  claude-sonnet                                — high-stakes: security, architecture, final review
+#  local-reasoning deepseek-r1:1.5b  1.12 GiB — override/CoT traces only (demoted 2026-03-08)
+#  local-analysis  phi4-mini         2.49 GiB — REMOVED from active routing (2026-03-08 eval)
+#  claude-sonnet                                — high-stakes + refactor + debug_analysis
 #
 # Each task type routes to the smallest model capable of doing it well.
 # Time is not a constraint (24/7 operation); Ollama hot-swap latency is acceptable.
+#
+# 2026-03-08: phi4-mini (local-analysis) failed refactor/debug eval — both task types
+# escalated to claude-sonnet. deepseek-r1 demoted to CoT override only, not primary routing.
 #
 DEFAULT_ROUTING_RULES: Dict[str, str] = {
     # Code specialist: purpose-built for generation and fixes
@@ -29,9 +32,9 @@ DEFAULT_ROUTING_RULES: Dict[str, str] = {
     "documentation":   "local-code",
     # General instruct: better instruction-following than a coding model
     "general":         "local-instruct",
-    # Deep analysis: phi4-mini for complex multi-step tasks (128K ctx, function calling)
-    "refactor":        "local-analysis",
-    "debug_analysis":  "local-analysis",
+    # Escalated to cloud: phi4-mini failed these task types in 2026-03-08 eval
+    "refactor":        "claude-sonnet",
+    "debug_analysis":  "claude-sonnet",
     # Premium cloud: high-stakes decisions only — security, architecture, final review
     "code_review":     "claude-sonnet",
     "architecture":    "claude-sonnet",
@@ -39,14 +42,15 @@ DEFAULT_ROUTING_RULES: Dict[str, str] = {
 }
 
 # Fallback chains: if primary model fails/times out, escalate in order
+# local-analysis removed from all chains (phi4-mini eval failure 2026-03-08)
 DEFAULT_FALLBACK_CHAINS: Dict[str, List[str]] = {
-    "local-code":      ["local-analysis", "claude-sonnet"],
-    "local-instruct":  ["local-analysis", "claude-sonnet"],
-    "local-reasoning": ["local-analysis", "claude-sonnet"],
-    "local-analysis":  ["claude-sonnet"],
+    "local-code":      ["claude-sonnet"],
+    "local-instruct":  ["claude-sonnet"],
+    "local-reasoning": ["claude-sonnet"],
+    "local-analysis":  ["claude-sonnet"],  # legacy — kept for any callers still referencing it
     # Legacy aliases — kept for callers that still use old model names
-    "gpt-3.5-turbo":   ["local-analysis", "claude-sonnet"],
-    "local-llama":     ["local-analysis", "claude-sonnet"],
+    "gpt-3.5-turbo":   ["claude-sonnet"],
+    "local-llama":     ["claude-sonnet"],
 }
 
 

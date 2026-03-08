@@ -146,24 +146,37 @@ class TestRouting:
         model = router.route("review the PR")
         assert model == "claude-sonnet"
 
+    def test_route_refactor_to_claude(self, router):
+        """refactor escalated to claude-sonnet after phi4-mini eval failure (2026-03-08)."""
+        model = router.route("refactor the database layer", task_override="refactor")
+        assert model == "claude-sonnet"
+
+    def test_route_debug_analysis_to_claude(self, router):
+        """debug_analysis escalated to claude-sonnet after phi4-mini eval failure (2026-03-08)."""
+        model = router.route("debug and analyse the crash", task_override="debug_analysis")
+        assert model == "claude-sonnet"
+
 
 class TestFallbackChains:
     """Tests for fallback chain retrieval."""
 
     def test_get_fallback_chain(self, router):
+        # local-analysis removed from chains after phi4-mini eval failure (2026-03-08)
         chain = router.get_fallback_chain("local-code")
-        assert chain == ["local-analysis", "claude-sonnet"]
+        assert chain == ["claude-sonnet"]
 
     def test_get_fallback_chain_missing(self, router):
         chain = router.get_fallback_chain("nonexistent-model")
         assert chain == []
 
-    def test_fallback_chain_preserves_order(self, router):
+    def test_fallback_chain_direct_to_claude(self, router):
+        # local-analysis no longer in chain — direct escalation to claude-sonnet
         chain = router.get_fallback_chain("local-code")
-        assert chain[0] == "local-analysis"
-        assert chain[1] == "claude-sonnet"
+        assert chain[0] == "claude-sonnet"
+        assert len(chain) == 1
 
-    def test_fallback_chain_free_model(self, router):
+    def test_fallback_chain_legacy_local_analysis(self, router):
+        # local-analysis entry kept as legacy — still falls back to claude-sonnet
         chain = router.get_fallback_chain("local-analysis")
         assert chain == ["claude-sonnet"]
 
