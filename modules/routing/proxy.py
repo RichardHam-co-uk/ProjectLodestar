@@ -53,8 +53,17 @@ _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
     "gpt-4o-mini": {
         "model": "openai/gpt-4o-mini",
     },
+    # NOTE: grok-beta is deprecated. grok-2-1212 requires xAI credits on account.
+    # Visit https://console.x.ai/ to add credits before this tier activates.
     "grok-beta": {
-        "model": "xai/grok-beta",
+        "model": "xai/grok-2-1212",
+    },
+    "perplexity-sonar": {
+        "model": "perplexity/sonar",
+        # api_key resolved at call time from os.environ["PERPLEXITY_API_KEY"]
+    },
+    "perplexity-sonar-pro": {
+        "model": "perplexity/sonar-pro",
     },
     "gemini-pro": {
         "model": "gemini-1.5-flash",
@@ -93,6 +102,9 @@ class LodestarProxy:
         # Initialize Cache
         from modules.routing.cache import CacheManager
         self.cache = CacheManager()
+
+        # Auto-start all modules (connects storage, starts health checks, etc.)
+        self.start()
 
     def _load_configs(self) -> None:
         """Load module configurations from YAML files."""
@@ -257,7 +269,10 @@ class LodestarProxy:
                     params[alias] = {
                         k: v for k, v in lp.items() if k != "model_name"
                     }
-            return params or dict(_DEFAULT_MODEL_PARAMS)
+            # Merge: defaults first, YAML overrides (YAML aliases take precedence)
+            merged = dict(_DEFAULT_MODEL_PARAMS)
+            merged.update(params)
+            return merged
         except Exception:
             logger.warning("Could not parse litellm_config.yaml; using defaults")
             return dict(_DEFAULT_MODEL_PARAMS)
@@ -336,7 +351,14 @@ class LodestarProxy:
                     tokens_out=usage.completion_tokens,
                     task=pipeline["task"],
                 )
-            pipeline["response"] = resp.choices[0].message.content
+            msg = resp.choices[0].message
+            # DeepSeek R1 and similar reasoning models put their answer in
+            # reasoning_content when max_tokens is exhausted before <answer>.
+            # Fall back to reasoning_content so callers always get something.
+            content = msg.content or ""
+            if not content.strip():
+                content = getattr(msg, "reasoning_content", None) or ""
+            pipeline["response"] = content or None
         else:
             pipeline["response"] = None
 

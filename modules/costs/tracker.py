@@ -23,8 +23,11 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "claude-opus":     {"input": 15.0,  "output": 75.0},
     "gpt-4o-mini":     {"input": 0.15,  "output": 0.60},
     "gpt-4o":          {"input": 2.50,  "output": 10.0},
-    "grok-beta":       {"input": 5.0,   "output": 15.0},
-    "gemini-pro":      {"input": 0.075, "output": 0.30},
+    "grok-beta":            {"input": 5.0,   "output": 15.0},
+    "gemini-pro":           {"input": 0.075, "output": 0.30},
+    # Perplexity — sonar pricing (per million tokens, as of 2026-03)
+    "perplexity-sonar":     {"input": 1.0,   "output": 1.0},
+    "perplexity-sonar-pro": {"input": 3.0,   "output": 15.0},
 }
 
 # Baseline model for savings calculation (what you'd pay without Lodestar)
@@ -58,6 +61,8 @@ class CostTracker(LodestarPlugin):
 
     def start(self) -> None:
         """Start the cost tracker and connect to storage if configured."""
+        if self._started:
+            return  # idempotent — safe to call multiple times
         if not self.enabled:
             logger.info("Cost tracker disabled, skipping start")
             return

@@ -50,11 +50,27 @@ model_list:
 
   # ============================================
   # TIER 4: GROK (xAI API)
+  # NOTE: Requires xAI credits at https://console.x.ai/
+  # grok-beta is deprecated — use grok-2-1212
   # ============================================
   - model_name: grok-beta
     litellm_params:
-      model: xai/grok-beta
+      model: xai/grok-2-1212
       api_key: os.environ/XAI_API_KEY
+
+  # ============================================
+  # TIER 4: PERPLEXITY (Perplexity AI)
+  # api.perplexity.ai:443 allowlisted 2026-03-08
+  # ============================================
+  - model_name: perplexity-sonar
+    litellm_params:
+      model: perplexity/sonar
+      api_key: os.environ/PERPLEXITY_API_KEY
+
+  - model_name: perplexity-sonar-pro
+    litellm_params:
+      model: perplexity/sonar-pro
+      api_key: os.environ/PERPLEXITY_API_KEY
 
 # ============================================
   # TIER 5: GEMINI (Google AI Studio)
