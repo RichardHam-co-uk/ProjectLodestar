@@ -14,14 +14,17 @@ logger = logging.getLogger(__name__)
 
 # Cost per 1M tokens (input/output) for each model alias
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
-    "gpt-3.5-turbo": {"input": 0.0, "output": 0.0},       # FREE (Ollama)
-    "local-llama": {"input": 0.0, "output": 0.0},          # FREE (Ollama)
-    "claude-sonnet": {"input": 3.0, "output": 15.0},
-    "claude-opus": {"input": 15.0, "output": 75.0},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "gpt-4o": {"input": 2.50, "output": 10.0},
-    "grok-beta": {"input": 5.0, "output": 15.0},
-    "gemini-pro": {"input": 0.075, "output": 0.30},
+    # Tier 1 — free local models (T600 Ollama)
+    "gpt-3.5-turbo":   {"input": 0.0,   "output": 0.0},
+    "local-llama":     {"input": 0.0,   "output": 0.0},
+    "local-reasoning": {"input": 0.0,   "output": 0.0},
+    # Tier 3 — paid cloud models
+    "claude-sonnet":   {"input": 3.0,   "output": 15.0},
+    "claude-opus":     {"input": 15.0,  "output": 75.0},
+    "gpt-4o-mini":     {"input": 0.15,  "output": 0.60},
+    "gpt-4o":          {"input": 2.50,  "output": 10.0},
+    "grok-beta":       {"input": 5.0,   "output": 15.0},
+    "gemini-pro":      {"input": 0.075, "output": 0.30},
 }
 
 # Baseline model for savings calculation (what you'd pay without Lodestar)

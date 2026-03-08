@@ -18,6 +18,49 @@ from modules.health.checker import HealthChecker
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Model parameter registry
+# Maps each model alias to the litellm kwargs needed to call it.
+# Loaded at import time from config/litellm_config.yaml where available;
+# otherwise uses these built-in defaults so the module works standalone.
+# ---------------------------------------------------------------------------
+_DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
+    "gpt-3.5-turbo": {
+        "model": "openai/deepseek-coder:6.7b",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    "local-llama": {
+        "model": "openai/llama3.2:1b",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    "local-reasoning": {
+        "model": "openai/deepseek-r1:7b",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    "claude-sonnet": {
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        # api_key resolved at call time from os.environ["ANTHROPIC_API_KEY"]
+    },
+    "claude-opus": {
+        "model": "anthropic/claude-opus-4-5-20251101",
+    },
+    "gpt-4o": {
+        "model": "openai/gpt-4o",
+    },
+    "gpt-4o-mini": {
+        "model": "openai/gpt-4o-mini",
+    },
+    "grok-beta": {
+        "model": "xai/grok-beta",
+    },
+    "gemini-pro": {
+        "model": "gemini-1.5-flash",
+    },
+}
+
 
 class LodestarProxy:
     """Orchestrates routing, fallback, and cost tracking for LLM requests.
@@ -192,6 +235,116 @@ class LodestarProxy:
             )
             
         return result_dict
+
+    def _build_model_params(self) -> Dict[str, Dict[str, Any]]:
+        """Load model parameters from litellm_config.yaml, falling back to defaults.
+
+        Returns:
+            Dict mapping alias → litellm kwargs (model, api_base, api_key, …).
+        """
+        litellm_cfg = self.config_dir / "litellm_config.yaml"
+        if not litellm_cfg.exists():
+            return dict(_DEFAULT_MODEL_PARAMS)
+
+        try:
+            with open(litellm_cfg) as f:
+                raw = yaml.safe_load(f) or {}
+            params: Dict[str, Dict[str, Any]] = {}
+            for entry in raw.get("model_list", []):
+                alias = entry.get("model_name")
+                lp = entry.get("litellm_params", {})
+                if alias and lp.get("model"):
+                    params[alias] = {
+                        k: v for k, v in lp.items() if k != "model_name"
+                    }
+            return params or dict(_DEFAULT_MODEL_PARAMS)
+        except Exception:
+            logger.warning("Could not parse litellm_config.yaml; using defaults")
+            return dict(_DEFAULT_MODEL_PARAMS)
+
+    def complete(
+        self,
+        prompt: str,
+        messages: Optional[List[Dict[str, str]]] = None,
+        task_override: Optional[str] = None,
+        model_override: Optional[str] = None,
+        max_tokens: int = 1024,
+        **litellm_kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Route a prompt and execute it via litellm, recording cost.
+
+        This is the primary entry point for all LLM calls from Lodestar.
+        It combines routing, execution with fallback, and cost tracking
+        into a single call.
+
+        Args:
+            prompt: The user's prompt (used for task classification).
+            messages: Full messages list. Defaults to [{"role":"user","content":prompt}].
+            task_override: Force a specific task classification.
+            model_override: Force a specific model alias.
+            max_tokens: Maximum tokens in the response.
+            **litellm_kwargs: Additional kwargs forwarded to litellm.completion().
+
+        Returns:
+            Dict with keys: task, model, response, cost_entry, savings.
+        """
+        import litellm
+        import os
+
+        if messages is None:
+            messages = [{"role": "user", "content": prompt}]
+
+        model_params = self._build_model_params()
+
+        def _request_fn(alias: str) -> Any:
+            """Call litellm with the params for the given model alias."""
+            params = model_params.get(alias, {})
+            if not params:
+                raise ValueError(f"Unknown model alias: {alias!r}")
+
+            call_kwargs: Dict[str, Any] = {
+                "model":      params["model"],
+                "messages":   messages,
+                "max_tokens": max_tokens,
+            }
+            if "api_base" in params:
+                call_kwargs["api_base"] = params["api_base"]
+            if "api_key" in params:
+                call_kwargs["api_key"] = params["api_key"]
+            call_kwargs.update(litellm_kwargs)
+
+            resp = litellm.completion(**call_kwargs)
+            return resp
+
+        # Run through handle_request (routing → fallback → cost recording)
+        pipeline = self.handle_request(
+            prompt=prompt,
+            request_fn=_request_fn,
+            task_override=task_override,
+            model_override=model_override,
+        )
+
+        result = pipeline["result"]
+        if result.success and result.response is not None:
+            resp = result.response
+            usage = resp.usage if hasattr(resp, "usage") else None
+            if usage:
+                # Re-record with actual token counts (handle_request used 0)
+                pipeline["cost_entry"] = self.cost_tracker.record(
+                    model=pipeline["model"],
+                    tokens_in=usage.prompt_tokens,
+                    tokens_out=usage.completion_tokens,
+                    task=pipeline["task"],
+                )
+            pipeline["response"] = resp.choices[0].message.content
+        else:
+            pipeline["response"] = None
+
+        return pipeline
+
+    def cost_summary(self) -> Dict[str, Any]:
+        """Return the current cost summary from the tracker."""
+        return self.cost_tracker.summary()
 
     def health_check(self) -> Dict[str, Any]:
         """Return health status of all modules."""

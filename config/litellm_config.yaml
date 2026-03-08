@@ -2,16 +2,25 @@
 model_list:
   # ============================================
   # TIER 1: FREE LOCAL MODELS (Default)
+  # Use openai/ prefix + Ollama /v1 endpoint to avoid litellm ollama-provider hang
   # ============================================
   - model_name: gpt-3.5-turbo
     litellm_params:
-      model: ollama/deepseek-coder:6.7b
-      api_base: http://192.168.120.211:11434
-      
+      model: openai/deepseek-coder:6.7b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
   - model_name: local-llama
     litellm_params:
-      model: ollama/llama3.1:8b
-      api_base: http://192.168.120.211:11434
+      model: openai/llama3.2:1b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
+  - model_name: local-reasoning
+    litellm_params:
+      model: openai/deepseek-r1:7b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
 
 # ============================================
   # TIER 2: CLAUDE (Anthropic API)
@@ -56,7 +65,7 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
 
 router_settings:
-  routing_strategy: simple-shuffle
+  routing_strategy: least-busy
   num_retries: 3
   timeout: 600
   set_verbose: true

@@ -1,7 +1,7 @@
 """Tests for the SemanticRouter."""
 
 import pytest
-from modules.routing.router import SemanticRouter, DEFAULT_ROUTING_RULES
+from modules.routing.router import SemanticRouter, DEFAULT_ROUTING_RULES, DEFAULT_FALLBACK_CHAINS
 
 
 @pytest.fixture
@@ -188,7 +188,7 @@ class TestRouterConfig:
     def test_default_config_uses_defaults(self):
         r = SemanticRouter({"enabled": True})
         assert r.routing_rules == DEFAULT_ROUTING_RULES
-        assert r.fallback_chains == {}
+        assert r.fallback_chains == DEFAULT_FALLBACK_CHAINS
 
     def test_health_check_counts(self):
         r = SemanticRouter({

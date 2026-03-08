@@ -11,15 +11,32 @@ from modules.base import LodestarPlugin
 
 logger = logging.getLogger(__name__)
 
-# Default task-to-model mapping
+# Default task-to-model mapping (three-tier: local fast → local reasoning → premium)
+#
+#  Tier 1 (free, fast)  — gpt-3.5-turbo alias → deepseek-coder:6.7b on T600 Ollama
+#  Tier 2 (free, smart) — local-reasoning alias → deepseek-r1:7b on T600 Ollama
+#  Tier 3 (paid)        — claude-sonnet alias → Anthropic API
+#
 DEFAULT_ROUTING_RULES: Dict[str, str] = {
+    # Tier 1: fast local code model
     "code_generation": "gpt-3.5-turbo",
-    "code_review": "claude-sonnet",
-    "bug_fix": "gpt-3.5-turbo",
-    "architecture": "claude-sonnet",
-    "documentation": "gpt-3.5-turbo",
-    "refactor": "gpt-3.5-turbo",
-    "general": "gpt-3.5-turbo",
+    "bug_fix":         "gpt-3.5-turbo",
+    "documentation":   "gpt-3.5-turbo",
+    "general":         "gpt-3.5-turbo",
+    # Tier 2: local reasoning model (more capable, still free)
+    "refactor":        "local-reasoning",
+    "debug_analysis":  "local-reasoning",
+    # Tier 3: premium (complex multi-step reasoning, security, architecture)
+    "code_review":     "claude-sonnet",
+    "architecture":    "claude-sonnet",
+    "security_audit":  "claude-sonnet",
+}
+
+# Fallback chains: if primary model fails, try these in order
+DEFAULT_FALLBACK_CHAINS: Dict[str, List[str]] = {
+    "gpt-3.5-turbo":   ["local-reasoning", "claude-sonnet"],
+    "local-reasoning":  ["claude-sonnet"],
+    "local-llama":      ["local-reasoning", "claude-sonnet"],
 }
 
 
@@ -39,7 +56,7 @@ class SemanticRouter(LodestarPlugin):
             "routing_rules", DEFAULT_ROUTING_RULES
         )
         self.fallback_chains: Dict[str, List[str]] = config.get(
-            "fallback_chains", {}
+            "fallback_chains", DEFAULT_FALLBACK_CHAINS
         )
         self._started = False
 
@@ -79,14 +96,19 @@ class SemanticRouter(LodestarPlugin):
         prompt_lower = prompt.lower()
 
         keywords: Dict[str, List[str]] = {
-            "bug_fix": ["fix", "bug", "error", "broken", "crash", "issue", "debug"],
-            "code_review": ["review", "check", "audit", "inspect", "quality"],
+            # Tier 3 — premium (checked first; these override cheaper tiers)
+            "security_audit": ["security", "vulnerabilit", "cve", "exploit", "pentest", "threat"],
             "architecture": [
                 "architect", "design", "structure", "pattern", "system",
-                "scalab", "diagram",
+                "scalab", "diagram", "microservice",
             ],
+            "code_review": ["review", "audit", "inspect", "quality"],
+            # Tier 2 — local reasoning
+            "debug_analysis": ["debug", "trace", "diagnose", "root cause", "analyse", "analyze"],
+            "refactor": ["refactor", "clean", "simplify", "reorganize", "improve", "optimise", "optimize"],
+            # Tier 1 — fast local
+            "bug_fix": ["fix", "bug", "error", "broken", "crash", "issue"],
             "documentation": ["document", "readme", "comment", "docstring", "explain"],
-            "refactor": ["refactor", "clean", "simplify", "reorganize", "improve"],
             "code_generation": [
                 "create", "build", "implement", "add", "write", "generate", "make",
             ],

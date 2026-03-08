@@ -2,18 +2,34 @@
 routing:
   enabled: true
 
-  # Task-to-model mapping (keyword-based classification)
+  # Three-tier task-to-model mapping (keyword-based classification)
+  #   T1 (free, fast)  — gpt-3.5-turbo   → deepseek-coder:6.7b on T600 Ollama
+  #   T2 (free, smart) — local-reasoning  → deepseek-r1:7b on T600 Ollama
+  #   T3 (paid)        — claude-sonnet    → Anthropic API
   routing_rules:
+    # Tier 1 — fast local
     code_generation: gpt-3.5-turbo      # FREE - DeepSeek handles most coding
-    code_review: claude-sonnet            # PAID - needs deep reasoning
-    bug_fix: gpt-3.5-turbo               # FREE - pattern matching
-    architecture: claude-sonnet           # PAID - complex decisions
-    documentation: gpt-3.5-turbo          # FREE - straightforward
-    refactor: gpt-3.5-turbo              # FREE - mechanical changes
-    general: gpt-3.5-turbo               # FREE - default
+    bug_fix:         gpt-3.5-turbo      # FREE - pattern matching
+    documentation:   gpt-3.5-turbo      # FREE - straightforward
+    general:         gpt-3.5-turbo      # FREE - default
+    # Tier 2 — local reasoning
+    refactor:        local-reasoning    # FREE - needs multi-step thinking
+    debug_analysis:  local-reasoning    # FREE - trace/diagnose
+    # Tier 3 — paid cloud
+    code_review:     claude-sonnet      # PAID - needs deep reasoning
+    architecture:    claude-sonnet      # PAID - complex decisions
+    security_audit:  claude-sonnet      # PAID - threat modelling
 
   # Fallback chains: if primary model fails, try these in order
   fallback_chains:
+    gpt-3.5-turbo:
+      - local-reasoning
+      - claude-sonnet
+    local-reasoning:
+      - claude-sonnet
+    local-llama:
+      - local-reasoning
+      - claude-sonnet
     claude-sonnet:
       - gpt-4o-mini
       - gpt-3.5-turbo
@@ -21,8 +37,6 @@ routing:
       - claude-sonnet
       - gpt-4o
       - gpt-3.5-turbo
-    gpt-3.5-turbo:
-      - local-llama
     grok-beta:
       - claude-sonnet
       - gpt-3.5-turbo
