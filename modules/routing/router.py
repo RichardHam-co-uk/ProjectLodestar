@@ -11,32 +11,42 @@ from modules.base import LodestarPlugin
 
 logger = logging.getLogger(__name__)
 
-# Default task-to-model mapping (three-tier: local fast → local reasoning → premium)
+# Specialist palette routing (T600 GPU — all local models confirmed pulled 2026-03-08)
 #
-#  Tier 1 (free, fast)  — gpt-3.5-turbo alias → deepseek-coder:6.7b on T600 Ollama
-#  Tier 2 (free, smart) — local-reasoning alias → deepseek-r1:7b on T600 Ollama
-#  Tier 3 (paid)        — claude-sonnet alias → Anthropic API
+#  local-code      qwen2.5-coder:3b  1.93 GiB — code generation, bug fixes, docs
+#  local-instruct  llama3.2:3b       2.02 GiB — general tasks, tool use, structured output
+#  local-reasoning deepseek-r1:1.5b  1.12 GiB — quick chain-of-thought, step-by-step
+#  local-analysis  phi4-mini         2.49 GiB — complex refactor, deep debug, function calling
+#  claude-sonnet                                — high-stakes: security, architecture, final review
+#
+# Each task type routes to the smallest model capable of doing it well.
+# Time is not a constraint (24/7 operation); Ollama hot-swap latency is acceptable.
 #
 DEFAULT_ROUTING_RULES: Dict[str, str] = {
-    # Tier 1: fast local code model
-    "code_generation": "gpt-3.5-turbo",
-    "bug_fix":         "gpt-3.5-turbo",
-    "documentation":   "gpt-3.5-turbo",
-    "general":         "gpt-3.5-turbo",
-    # Tier 2: local reasoning model (more capable, still free)
-    "refactor":        "local-reasoning",
-    "debug_analysis":  "local-reasoning",
-    # Tier 3: premium (complex multi-step reasoning, security, architecture)
+    # Code specialist: purpose-built for generation and fixes
+    "code_generation": "local-code",
+    "bug_fix":         "local-code",
+    "documentation":   "local-code",
+    # General instruct: better instruction-following than a coding model
+    "general":         "local-instruct",
+    # Deep analysis: phi4-mini for complex multi-step tasks (128K ctx, function calling)
+    "refactor":        "local-analysis",
+    "debug_analysis":  "local-analysis",
+    # Premium cloud: high-stakes decisions only — security, architecture, final review
     "code_review":     "claude-sonnet",
     "architecture":    "claude-sonnet",
     "security_audit":  "claude-sonnet",
 }
 
-# Fallback chains: if primary model fails, try these in order
+# Fallback chains: if primary model fails/times out, escalate in order
 DEFAULT_FALLBACK_CHAINS: Dict[str, List[str]] = {
-    "gpt-3.5-turbo":   ["local-reasoning", "claude-sonnet"],
-    "local-reasoning":  ["claude-sonnet"],
-    "local-llama":      ["local-reasoning", "claude-sonnet"],
+    "local-code":      ["local-analysis", "claude-sonnet"],
+    "local-instruct":  ["local-analysis", "claude-sonnet"],
+    "local-reasoning": ["local-analysis", "claude-sonnet"],
+    "local-analysis":  ["claude-sonnet"],
+    # Legacy aliases — kept for callers that still use old model names
+    "gpt-3.5-turbo":   ["local-analysis", "claude-sonnet"],
+    "local-llama":     ["local-analysis", "claude-sonnet"],
 }
 
 

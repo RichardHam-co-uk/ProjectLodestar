@@ -31,20 +31,35 @@ logger = logging.getLogger(__name__)
 # otherwise uses these built-in defaults so the module works standalone.
 # ---------------------------------------------------------------------------
 _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
-    "gpt-3.5-turbo": {
-        # qwen2.5-coder:1.5b (~1 GiB) — fits within T600 memory; replaces
-        # deepseek-coder:6.7b (2.5 GiB) which OOMed on the T600
-        "model": "openai/qwen2.5-coder:1.5b",
+    # ---- Local specialists (T600 GPU, confirmed pulled 2026-03-08) ----
+    "local-code": {
+        "model": "openai/qwen2.5-coder:3b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },
-    "local-llama": {
-        "model": "openai/llama3.2:1b",
+    "local-instruct": {
+        "model": "openai/llama3.2:3b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },
     "local-reasoning": {
-        "model": "openai/deepseek-r1:7b",
+        "model": "openai/deepseek-r1:1.5b",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    "local-analysis": {
+        "model": "openai/phi4-mini:latest",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    # ---- Legacy aliases (backwards compat) ----
+    "gpt-3.5-turbo": {
+        "model": "openai/qwen2.5-coder:3b",
+        "api_base": "http://192.168.120.211:11434/v1",
+        "api_key": "ollama",
+    },
+    "local-llama": {
+        "model": "openai/llama3.2:3b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },

@@ -1,62 +1,91 @@
 
 model_list:
   # ============================================
-  # TIER 1: FREE LOCAL MODELS (Default)
-  # Use openai/ prefix + Ollama /v1 endpoint to avoid litellm ollama-provider hang
+  # LOCAL SPECIALISTS — vm-gpu-media T600 GPU (4 GiB VRAM)
+  # Ollama at 192.168.120.211:11434 — one model in VRAM at a time (hot-swap)
+  # Use openai/ prefix + /v1 endpoint to avoid litellm ollama-provider async hang
+  #
+  # Palette (confirmed pulled 2026-03-08):
+  #   local-code      qwen2.5-coder:3b  1.93 GiB  code gen, bug fixes, docs
+  #   local-instruct  llama3.2:3b       2.02 GiB  general tasks, tool use, structured output
+  #   local-reasoning deepseek-r1:1.5b  1.12 GiB  quick chain-of-thought, step-by-step
+  #   local-analysis  phi4-mini         2.49 GiB  complex refactor, debug analysis, function calling
   # ============================================
+
+  - model_name: local-code
+    litellm_params:
+      # Best-in-class coding model for T600 VRAM budget
+      # Purpose: code_generation, bug_fix, documentation tasks
+      model: openai/qwen2.5-coder:3b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
+  - model_name: local-instruct
+    litellm_params:
+      # Strong instruction-following and tool use; replaces llama3.2:1b (local-llama)
+      # Purpose: general tasks, structured output, prompt rewriting
+      model: openai/llama3.2:3b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
+  - model_name: local-reasoning
+    litellm_params:
+      # Fast chain-of-thought reasoning with visible <think> traces
+      # Purpose: step-by-step analysis where reasoning transparency matters
+      model: openai/deepseek-r1:1.5b
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
+  - model_name: local-analysis
+    litellm_params:
+      # Microsoft Phi-4 Mini — 3.8B, 128K context, native function calling (2.49 GiB)
+      # Purpose: complex refactor, deep debug analysis, multi-step code review
+      model: openai/phi4-mini:latest
+      api_base: http://192.168.120.211:11434/v1
+      api_key: ollama
+
+  # Legacy aliases — kept for backwards compatibility with existing callers
   - model_name: gpt-3.5-turbo
     litellm_params:
-      # qwen2.5-coder:3b (~1.9 GiB) — upgraded from 1.5b for better code quality
-      # T600 confirmed 4 GiB VRAM; T1+T2 fit simultaneously (1.9+1.1 = 3.0 GiB)
       model: openai/qwen2.5-coder:3b
       api_base: http://192.168.120.211:11434/v1
       api_key: ollama
 
   - model_name: local-llama
     litellm_params:
-      model: openai/llama3.2:1b
+      model: openai/llama3.2:3b
       api_base: http://192.168.120.211:11434/v1
       api_key: ollama
 
-  - model_name: local-reasoning
-    litellm_params:
-      # deepseek-r1:1.5b (~1.1 GiB) — replaces deepseek-r1:7b (4.3 GiB) which OOMed on T600
-      # T600 has 4 GiB VRAM; deepseek-r1:7b exceeded available headroom during hot-swap
-      # deepseek-r1:1.5b confirmed pulled on T600 and working (2026-03-08)
-      model: openai/deepseek-r1:1.5b
-      api_base: http://192.168.120.211:11434/v1
-      api_key: ollama
-
-# ============================================
-  # TIER 2: CLAUDE (Anthropic API)
+  # ============================================
+  # CLOUD: CLAUDE (Anthropic API)
   # ============================================
   - model_name: claude-sonnet
     litellm_params:
       model: anthropic/claude-sonnet-4-5-20250929
       api_key: os.environ/ANTHROPIC_API_KEY
-      
+
   - model_name: claude-opus
     litellm_params:
       model: anthropic/claude-opus-4-5-20251101
       api_key: os.environ/ANTHROPIC_API_KEY
 
-# ============================================
-  # TIER 3: OPENAI (ChatGPT API)
+  # ============================================
+  # CLOUD: OPENAI
   # ============================================
   - model_name: gpt-4o
     litellm_params:
       model: openai/gpt-4o
       api_key: os.environ/OPENAI_API_KEY
-      
+
   - model_name: gpt-4o-mini
     litellm_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
   # ============================================
-  # TIER 4: GROK (xAI API — credits required)
+  # CLOUD: GROK (xAI)
   # grok-3-fast: best speed/quality (~0.9s, confirmed 2026-03-08)
-  # grok-3-mini: cheapest xAI option, good for lighter tasks
   # ============================================
   - model_name: grok-beta
     litellm_params:
@@ -69,8 +98,7 @@ model_list:
       api_key: os.environ/XAI_API_KEY
 
   # ============================================
-  # TIER 4: PERPLEXITY (Perplexity AI)
-  # api.perplexity.ai:443 allowlisted 2026-03-08
+  # CLOUD: PERPLEXITY
   # ============================================
   - model_name: perplexity-sonar
     litellm_params:
@@ -82,8 +110,8 @@ model_list:
       model: perplexity/sonar-pro
       api_key: os.environ/PERPLEXITY_API_KEY
 
-# ============================================
-  # TIER 5: GEMINI (Google AI Studio)
+  # ============================================
+  # CLOUD: GEMINI
   # ============================================
   - model_name: gemini-pro
     litellm_params:
