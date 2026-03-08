@@ -80,30 +80,73 @@ DASHBOARDS: list[tuple[str, str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Chromium args — same hardened set as DerekBrowserClient but WITHOUT
-# --incognito so that storage_state (cookie persistence) works correctly.
+# Chromium launch args — hardened for security but stealth-safe.
+#
+# Flags deliberately OMITTED vs a generic headless setup:
+#   --disable-extensions, --disable-background-networking,
+#   --disable-background-timer-throttling, --disable-backgrounding-occluded-windows,
+#   --disable-breakpad, --disable-component-update, --disable-domain-reliability,
+#   --no-first-run, --no-default-browser-check, --disable-sync,
+#   --disable-notifications, --disable-plugins, --disable-features=TranslateUI
+#
+# These are commonly stripped by bot-detection fingerprinting (e.g. Cloudflare,
+# Datadome) because they create an unambiguous "automated Chromium" profile.
+# Only flags genuinely required for security / VM compatibility are kept.
+#
+# --disable-blink-features=AutomationControlled removes the Chrome automation
+# infobar AND suppresses the CDP-exposed automation flag in the renderer.
 # ---------------------------------------------------------------------------
-_SECURE_ARGS: list[str] = [
+_CHROMIUM_ARGS: list[str] = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
     "--disable-accelerated-2d-canvas",
     "--disable-gpu",
     "--window-size=1440,900",
-    "--disable-features=TranslateUI",
-    "--disable-extensions",
-    "--disable-plugins",
-    "--disable-sync",
-    "--disable-notifications",
-    "--disable-background-networking",
-    "--disable-background-timer-throttling",
-    "--disable-backgrounding-occluded-windows",
-    "--disable-breakpad",
-    "--disable-component-update",
-    "--disable-domain-reliability",
-    "--no-first-run",
-    "--no-default-browser-check",
+    "--disable-blink-features=AutomationControlled",
+    "--lang=en-GB",
 ]
+
+# ---------------------------------------------------------------------------
+# Stealth — realistic browser fingerprint applied as a page init script.
+#
+# Patched signals:
+#   navigator.webdriver  — primary flag checked by virtually all bot detectors
+#   window.chrome        — absent in headless Chrome; its absence is a tell
+#   navigator.plugins    — headless Chrome reports 0 plugins; real browsers > 0
+#   navigator.languages  — align with --lang=en-GB launch arg
+# ---------------------------------------------------------------------------
+_STEALTH_INIT_SCRIPT: str = """
+// Remove the primary automation flag
+Object.defineProperty(navigator, 'webdriver', {
+    get: () => undefined,
+    configurable: true,
+});
+
+// Restore chrome runtime object absent in headless mode
+if (!window.chrome) {
+    window.chrome = { runtime: {} };
+}
+
+// Restore non-zero plugin list (headless reports 0)
+Object.defineProperty(navigator, 'plugins', {
+    get: () => [1, 2, 3, 4, 5],
+    configurable: true,
+});
+
+// Align with --lang=en-GB launch arg
+Object.defineProperty(navigator, 'languages', {
+    get: () => ['en-GB', 'en'],
+    configurable: true,
+});
+"""
+
+# Realistic Chrome 120 user-agent on Linux (matches the actual host platform).
+_USER_AGENT: str = (
+    "Mozilla/5.0 (X11; Linux x86_64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
 
 SESSION_TIMEOUT_SECONDS = 600  # 10 min — longer for manual login
 OPERATION_TIMEOUT_MS = 30_000
@@ -172,7 +215,7 @@ def capture_dashboards(
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
                 headless=headless,
-                args=_SECURE_ARGS,
+                args=_CHROMIUM_ARGS,
                 slow_mo=slow_mo,
             )
 
@@ -185,6 +228,7 @@ def capture_dashboards(
 
             ctx_kwargs: dict[str, Any] = {
                 "viewport": {"width": 1440, "height": 900},
+                "user_agent": _USER_AGENT,
             }
             if storage:
                 ctx_kwargs["storage_state"] = storage
@@ -192,6 +236,8 @@ def capture_dashboards(
             context = browser.new_context(**ctx_kwargs)
             context.set_default_timeout(OPERATION_TIMEOUT_MS)
             context.set_default_navigation_timeout(OPERATION_TIMEOUT_MS)
+            # Apply stealth patches to every page before any script runs
+            context.add_init_script(_STEALTH_INIT_SCRIPT)
             page = context.new_page()
 
             if first_run:

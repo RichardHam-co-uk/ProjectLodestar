@@ -304,3 +304,82 @@ def test_main_success_returns_0(tmp_path, monkeypatch, _patch_playwright):
 
     rc = main([])
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Bot-detection hardening
+# ---------------------------------------------------------------------------
+
+def test_chromium_args_has_automation_controlled():
+    """--disable-blink-features=AutomationControlled must be in launch args."""
+    from modules.costs.dashboard_scraper import _CHROMIUM_ARGS
+    assert "--disable-blink-features=AutomationControlled" in _CHROMIUM_ARGS
+
+
+def test_chromium_args_no_obvious_automation_fingerprints():
+    """Flags that fingerprint an automated Chromium must not appear."""
+    from modules.costs.dashboard_scraper import _CHROMIUM_ARGS
+    forbidden = [
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-breakpad",
+        "--disable-component-update",
+        "--no-first-run",
+        "--no-default-browser-check",
+    ]
+    for flag in forbidden:
+        assert flag not in _CHROMIUM_ARGS, f"Automation fingerprint flag present: {flag}"
+
+
+def test_user_agent_is_set_in_context(tmp_path, monkeypatch, _patch_playwright):
+    """A realistic user-agent must be passed to new_context()."""
+    cookie_file = tmp_path / "auth.json"
+    screenshot_base = tmp_path / "screenshots"
+    monkeypatch.setattr("modules.costs.dashboard_scraper.COOKIE_FILE", cookie_file)
+    monkeypatch.setattr("modules.costs.dashboard_scraper.SCREENSHOT_BASE", screenshot_base)
+    monkeypatch.setattr("builtins.input", lambda _: "")
+
+    _, _, mock_browser = _patch_playwright
+
+    from modules.costs.dashboard_scraper import capture_dashboards, _USER_AGENT
+    capture_dashboards(headless=False)
+
+    call_kwargs = mock_browser.new_context.call_args[1]
+    assert "user_agent" in call_kwargs
+    assert call_kwargs["user_agent"] == _USER_AGENT
+
+
+def test_user_agent_is_not_playwright_default():
+    """User-agent must not contain 'Playwright' or 'HeadlessChrome'."""
+    from modules.costs.dashboard_scraper import _USER_AGENT
+    assert "Playwright" not in _USER_AGENT
+    assert "HeadlessChrome" not in _USER_AGENT
+
+
+def test_stealth_init_script_applied(tmp_path, monkeypatch, _patch_playwright):
+    """add_init_script() must be called with the stealth patch on every run."""
+    cookie_file = tmp_path / "auth.json"
+    screenshot_base = tmp_path / "screenshots"
+    monkeypatch.setattr("modules.costs.dashboard_scraper.COOKIE_FILE", cookie_file)
+    monkeypatch.setattr("modules.costs.dashboard_scraper.SCREENSHOT_BASE", screenshot_base)
+    monkeypatch.setattr("builtins.input", lambda _: "")
+
+    _, mock_context, _ = _patch_playwright
+
+    from modules.costs.dashboard_scraper import capture_dashboards, _STEALTH_INIT_SCRIPT
+    capture_dashboards(headless=False)
+
+    mock_context.add_init_script.assert_called_once_with(_STEALTH_INIT_SCRIPT)
+
+
+def test_stealth_script_patches_webdriver():
+    """Stealth init script must patch navigator.webdriver."""
+    from modules.costs.dashboard_scraper import _STEALTH_INIT_SCRIPT
+    assert "navigator" in _STEALTH_INIT_SCRIPT
+    assert "webdriver" in _STEALTH_INIT_SCRIPT
+
+
+def test_stealth_script_patches_chrome_runtime():
+    """Stealth init script must restore window.chrome."""
+    from modules.costs.dashboard_scraper import _STEALTH_INIT_SCRIPT
+    assert "window.chrome" in _STEALTH_INIT_SCRIPT
