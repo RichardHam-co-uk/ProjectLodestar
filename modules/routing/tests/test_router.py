@@ -10,10 +10,7 @@ def router_config():
     return {
         "enabled": True,
         "routing_rules": DEFAULT_ROUTING_RULES,
-        "fallback_chains": {
-            "claude-sonnet": ["gpt-4o-mini", "gpt-3.5-turbo"],
-            "gpt-3.5-turbo": ["local-llama"],
-        },
+        "fallback_chains": DEFAULT_FALLBACK_CHAINS,
     }
 
 
@@ -118,7 +115,7 @@ class TestRouting:
 
     def test_route_uses_classification(self, router):
         model = router.route("fix the crash bug")
-        assert model == "gpt-3.5-turbo"
+        assert model == "local-code"
 
     def test_route_architecture_to_claude(self, router):
         model = router.route("design the system architecture")
@@ -130,20 +127,20 @@ class TestRouting:
 
     def test_route_unknown_task_uses_general(self, router):
         model = router.route("something random", task_override="unknown_task")
-        assert model == "gpt-3.5-turbo"
+        assert model == "local-instruct"
 
     def test_route_defaults_to_free_model(self, router):
         model = router.route("do something")
-        assert model == "gpt-3.5-turbo"
+        assert model == "local-instruct"
 
     def test_route_unknown_override_falls_to_general(self, router):
         """Task override with unknown task should fall back to general model."""
         model = router.route("anything", task_override="imaginary_task")
-        assert model == "gpt-3.5-turbo"
+        assert model == "local-instruct"
 
     def test_route_empty_prompt(self, router):
         model = router.route("")
-        assert model == "gpt-3.5-turbo"  # general
+        assert model == "local-instruct"  # general
 
     def test_route_code_review_to_claude(self, router):
         model = router.route("review the PR")
@@ -154,21 +151,21 @@ class TestFallbackChains:
     """Tests for fallback chain retrieval."""
 
     def test_get_fallback_chain(self, router):
-        chain = router.get_fallback_chain("claude-sonnet")
-        assert chain == ["gpt-4o-mini", "gpt-3.5-turbo"]
+        chain = router.get_fallback_chain("local-code")
+        assert chain == ["local-analysis", "claude-sonnet"]
 
     def test_get_fallback_chain_missing(self, router):
         chain = router.get_fallback_chain("nonexistent-model")
         assert chain == []
 
     def test_fallback_chain_preserves_order(self, router):
-        chain = router.get_fallback_chain("claude-sonnet")
-        assert chain[0] == "gpt-4o-mini"
-        assert chain[1] == "gpt-3.5-turbo"
+        chain = router.get_fallback_chain("local-code")
+        assert chain[0] == "local-analysis"
+        assert chain[1] == "claude-sonnet"
 
     def test_fallback_chain_free_model(self, router):
-        chain = router.get_fallback_chain("gpt-3.5-turbo")
-        assert chain == ["local-llama"]
+        chain = router.get_fallback_chain("local-analysis")
+        assert chain == ["claude-sonnet"]
 
 
 class TestRouterConfig:
