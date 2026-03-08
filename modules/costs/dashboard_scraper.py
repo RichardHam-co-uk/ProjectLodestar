@@ -100,8 +100,6 @@ _CHROMIUM_ARGS: list[str] = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
-    "--disable-accelerated-2d-canvas",
-    "--disable-gpu",
     "--window-size=1440,900",
     "--disable-blink-features=AutomationControlled",
     "--lang=en-GB",
@@ -265,6 +263,27 @@ def capture_dashboards(
                     page.goto(url, wait_until="networkidle", timeout=45_000)
                     # Brief wait for any JS-rendered charts to settle
                     page.wait_for_timeout(2000)
+
+                    # Detect Cloudflare / security block pages before saving.
+                    # These return HTTP 200 with a block page rather than an error,
+                    # so we must inspect content rather than rely on status codes.
+                    page_text = page.inner_text("body") if page.query_selector("body") else ""
+                    block_signals = [
+                        "sorry, you have been blocked",
+                        "this website is using a security service",
+                        "cloudflare ray id",
+                        "performing security verification",
+                        "enable javascript and cookies to continue",
+                    ]
+                    if any(sig in page_text.lower() for sig in block_signals):
+                        _log.warning(
+                            "%s: bot-detection block page detected — skipping screenshot. "
+                            "Log in manually and press ENTER, or check the provider console directly.",
+                            provider,
+                        )
+                        print(f"SKIPPED — bot-detection block page (see log)")
+                        continue
+
                     out_path = screenshot_dir / filename
                     page.screenshot(path=str(out_path), full_page=False)
                     saved_paths.append(out_path)
