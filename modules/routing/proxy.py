@@ -32,9 +32,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
     "gpt-3.5-turbo": {
-        # qwen2.5-coder:1.5b (~1 GiB) — fits within T600 memory; replaces
-        # deepseek-coder:6.7b (2.5 GiB) which OOMed on the T600
-        "model": "openai/qwen2.5-coder:1.5b",
+        # qwen2.5-coder:3b (~1.9 GiB) — T600 has 4 GiB VRAM (NVIDIA T600, CUDA).
+        # Models hot-swap so full VRAM headroom available per model.
+        # Better coding quality than 1.5b; already present on T600.
+        "model": "openai/qwen2.5-coder:3b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },
@@ -44,7 +45,9 @@ _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
         "api_key": "ollama",
     },
     "local-reasoning": {
-        "model": "openai/deepseek-r1:7b",
+        # deepseek-r1:1.5b (~1.1 GiB) — fits T600 memory; upgrade to 7b pending
+        # GPU investigation (Ollama currently running CPU-only on T600)
+        "model": "openai/deepseek-r1:1.5b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },

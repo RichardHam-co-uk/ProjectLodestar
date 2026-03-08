@@ -6,9 +6,10 @@ model_list:
   # ============================================
   - model_name: gpt-3.5-turbo
     litellm_params:
-      # qwen2.5-coder:1.5b (~1 GiB) — fits within T600 available memory
-      # replaces deepseek-coder:6.7b (2.5 GiB) which exceeded T600 memory limit
-      model: openai/qwen2.5-coder:1.5b
+      # qwen2.5-coder:3b (~1.9 GiB) — T600 has 4 GiB VRAM (NVIDIA T600, CUDA),
+      # models hot-swap so full VRAM is available per model. Better coding quality
+      # than 1.5b. Already present on T600.
+      model: openai/qwen2.5-coder:3b
       api_base: http://192.168.120.211:11434/v1
       api_key: ollama
 
@@ -20,7 +21,9 @@ model_list:
 
   - model_name: local-reasoning
     litellm_params:
-      model: openai/deepseek-r1:7b
+      # deepseek-r1:1.5b (~1.1 GiB) — fits T600 memory; replaces deepseek-r1:7b
+      # (1.8 GiB) which exceeded available memory. Upgrade pending GPU investigation.
+      model: openai/deepseek-r1:1.5b
       api_base: http://192.168.120.211:11434/v1
       api_key: ollama
 
