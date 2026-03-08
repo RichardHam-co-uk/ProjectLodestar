@@ -3,7 +3,7 @@ routing:
   enabled: true
 
   # Three-tier task-to-model mapping (keyword-based classification)
-  #   T1 (free, fast)  — gpt-3.5-turbo   → deepseek-coder:6.7b on T600 Ollama
+  #   T1 (free, fast)  — gpt-3.5-turbo   → qwen2.5-coder:1.5b on T600 Ollama
   #   T2 (free, smart) — local-reasoning  → deepseek-r1:7b on T600 Ollama
   #   T3 (paid)        — claude-sonnet    → Anthropic API
   routing_rules:
