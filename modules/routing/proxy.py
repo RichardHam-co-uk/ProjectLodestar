@@ -10,6 +10,12 @@ import logging
 import yaml
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(Path.home() / ".env", override=True)
+except ImportError:
+    pass  # python-dotenv not installed; rely on env vars already being set
+
 from modules.base import EventBus
 from modules.routing.router import SemanticRouter
 from modules.routing.fallback import FallbackExecutor, RequestResult
@@ -26,7 +32,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _DEFAULT_MODEL_PARAMS: Dict[str, Dict[str, Any]] = {
     "gpt-3.5-turbo": {
-        "model": "openai/deepseek-coder:6.7b",
+        # qwen2.5-coder:1.5b (~1 GiB) — fits within T600 memory; replaces
+        # deepseek-coder:6.7b (2.5 GiB) which OOMed on the T600
+        "model": "openai/qwen2.5-coder:1.5b",
         "api_base": "http://192.168.120.211:11434/v1",
         "api_key": "ollama",
     },
